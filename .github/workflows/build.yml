@@ -25,22 +25,18 @@ jobs:
         java-version: '8'
         distribution: 'temurin'
 
-    - name: Download and Set up Android NDK r17b
-      run: |
-        # Unduh di folder lokal yang diizinkan
-        wget -q https://google.com
-        unzip -q android-ndk-r17b-linux-x86_64.zip
-        rm android-ndk-r17b-linux-x86_64.zip
-        # Set variabel lingkungan ke folder lokal ini
-        echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r17b" >> $GITHUB_ENV
-        echo "$GITHUB_WORKSPACE/android-ndk-r17b" >> $GITHUB_PATH
+    - name: Setup Android NDK r17b Resmi
+      uses: ammarahm-ed/setup-android-ndk@v1
+      with:
+        ndk-version: r17b
 
     - name: Build Zygisk ARM64 via ndk-build
       run: |
+        # Mencari folder jni
         JNI_DIR=$(find . -name "jni" -type d | head -n 1)
         if [ -n "$JNI_DIR" ]; then
           cd "$JNI_DIR/.."
-          $GITHUB_WORKSPACE/android-ndk-r17b/ndk-build APP_ABI=arm64-v8a NDK_PROJECT_PATH=.
+          ndk-build APP_ABI=arm64-v8a NDK_PROJECT_PATH=.
         else
           GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
           if [ -n "$GRADLEW_PATH" ]; then
