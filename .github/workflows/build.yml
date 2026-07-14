@@ -11,8 +11,12 @@ jobs:
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    - name: Install Unzip
-      run: sudo apt-get update && sudo apt-get install -y unzip
+    - name: Install Unzip & Android NDK via APT
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y unzip android-sdk-platform-tools-common Google-android-ndk-installer || true
+        # Mengunduh paket kompilator ndk standar linux jika installer lokal tidak tersedia
+        sudo apt-get install -y make clang || true
 
     - name: Extract Zygisk Source ZIP
       run: |
@@ -25,25 +29,34 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
 
-    - name: Build Zygisk ARM64 via Bawaan GitHub
+    - name: Build Zygisk Mod
       run: |
-        # Mencari letak folder jni untuk eksekusi ndk-build
+        # Mencari letak berkas utama kompilasi
+        GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
         JNI_DIR=$(find . -name "jni" -type d | head -n 1)
-        if [ -n "$JNI_DIR" ]; then
+
+        if [ -n "$GRADLEW_PATH" ]; then
+          echo "Mendeteksi proyek berbasis Gradle. Memulai build..."
+          cd $(dirname "$GRADLEW_PATH")
+          chmod +x gradlew
+          ./gradlew assembleRelease
+        elif [ -n "$JNI_DIR" ]; then
+          echo "Mendeteksi proyek berbasis JNI/ndk-build. Memulai build..."
           cd "$JNI_DIR/.."
-          # Menggunakan ndk-build bawaan sistem pre-installed GitHub
-          $ANDROID_HOME/ndk-bundle/ndk-build APP_ABI=arm64-v8a NDK_PROJECT_PATH=.
-        else
-          # Jika source code memakai wrapper gradle
-          GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
-          if [ -n "$GRADLEW_PATH" ]; then
-            cd $(dirname "$GRADLEW_PATH")
-            chmod +x gradlew
-            ./gradlew assembleRelease
+          # Menggunakan kompilator ndk-build dari sistem utama linux
+          if command -v ndk-build &> /dev/null; then
+            ndk-build APP_ABI=arm64-v8a NDK_PROJECT_PATH=.
+          elif [ -d "$ANDROID_HOME/ndk" ]; then
+            # Mencari versi ndk cadangan di dalam folder SDK alternatif
+            LATEST_NDK=$(ls -d $ANDROID_HOME/ndk/* | sort -V | tail -n 1)
+            $LATEST_NDK/ndk-build APP_ABI=arm64-v8a NDK_PROJECT_PATH=.
           else
-            echo "Berkas build ndk atau gradle tidak ditemukan!"
+            echo "Komponen ndk-build tidak dapat ditemukan di sistem!"
             exit 1
           fi
+        else
+          echo "Berkas konfigurasi build (Gradle/JNI) tidak ditemukan di dalam ZIP Anda!"
+          exit 1
         fi
 
     - name: Upload Build Artifact (ARM64)
@@ -54,3 +67,4 @@ jobs:
           **/libs/arm64-v8a/*
           **/out/*.zip
           **/build/outputs/**/*.zip
+          **/build/outputs/apk/release/*.apk
