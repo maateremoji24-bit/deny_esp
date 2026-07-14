@@ -1,7 +1,7 @@
 name: Build Zygisk Mod from ZIP
 
 on:
-  workflow_dispatch: # Tombol manual untuk mulai build
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,22 +27,21 @@ jobs:
 
     - name: Download and Set up Android NDK r17b
       run: |
-        cd $ANDROID_HOME
+        # Unduh di folder lokal yang diizinkan
         wget -q https://google.com
         unzip -q android-ndk-r17b-linux-x86_64.zip
         rm android-ndk-r17b-linux-x86_64.zip
-        echo "ANDROID_NDK_HOME=$ANDROID_HOME/android-ndk-r17b" >> $GITHUB_ENV
-        echo "$ANDROID_HOME/android-ndk-r17b" >> $GITHUB_PATH
+        # Set variabel lingkungan ke folder lokal ini
+        echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r17b" >> $GITHUB_ENV
+        echo "$GITHUB_WORKSPACE/android-ndk-r17b" >> $GITHUB_PATH
 
     - name: Build Zygisk ARM64 via ndk-build
       run: |
-        # Mencari letak folder jni tempat Android.mk berada
         JNI_DIR=$(find . -name "jni" -type d | head -n 1)
         if [ -n "$JNI_DIR" ]; then
           cd "$JNI_DIR/.."
-          $ANDROID_NDK_HOME/ndk-build APP_ABI=arm64-v8a NDK_PROJECT_PATH=.
+          $GITHUB_WORKSPACE/android-ndk-r17b/ndk-build APP_ABI=arm64-v8a NDK_PROJECT_PATH=.
         else
-          # Jika menggunakan struktur Gradle lama
           GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
           if [ -n "$GRADLEW_PATH" ]; then
             cd $(dirname "$GRADLEW_PATH")
