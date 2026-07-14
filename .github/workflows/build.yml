@@ -1,0 +1,60 @@
+name: Build Zygisk Mod from ZIP
+
+on:
+  workflow_dispatch: # Tombol manual untuk mulai build
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04 # Menggunakan OS yang stabil untuk NDK lama
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    - name: Install Unzip
+      run: sudo apt-get install -y unzip
+
+    - name: Extract Zygisk Source ZIP
+      run: |
+        unzip "ZYGISK SRC RAMA MODZ.zip" -d ./
+        ls -la
+
+    - name: Set up JDK 8
+      uses: actions/setup-java@v4
+      with:
+        java-version: '8' # NDK r17 membutuhkan Java versi lama (JDK 8) agar stabil
+        distribution: 'temurin'
+
+    - name: Set up Android NDK r17b
+      uses: nwtgck/actions-setup-ndk@v1
+      with:
+        ndk-version: r17b # Menggunakan versi r17 sesuai kebutuhan source code
+
+    - name: Build Zygisk ARM64 via ndk-build
+      run: |
+        # Mencari letak folder jni tempat Android.mk berada
+        JNI_DIR=$(find . -name "jni" -type d | head -n 1)
+        if [ -n "$JNI_DIR" ]; then
+          cd "$JNI_DIR/.."
+          ndk-build APP_ABI=arm64-v8a NDK_PROJECT_PATH=.
+        else
+          # Jika menggunakan struktur Gradle lama
+          GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
+          if [ -n "$GRADLEW_PATH" ]; then
+            cd $(dirname "$GRADLEW_PATH")
+            chmod +x gradlew
+            ./gradlew assembleRelease
+          else
+            echo "Format build tidak ditemukan!"
+            exit 1
+          fi
+        fi
+
+    - name: Upload Build Artifact (ARM64)
+      uses: actions/upload-artifact@v4
+      with:
+        name: Zygisk-Mod-ARM64-Release
+        path: |
+          **/libs/arm64-v8a/*
+          **/out/*.zip
+          **/build/outputs/**/*.zip
